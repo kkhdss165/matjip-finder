@@ -1,0 +1,47 @@
+# ── 맛집 필터 기본값 ─────────────────────────────────────────────────
+# 검색 UI가 처음 열릴 때 이 값들로 폼이 채워집니다. 화면에서 바꿔도 됩니다.
+
+# 선택 가능한 카테고리 목록 (UI 드롭다운/체크박스로 노출)
+# key   : 내부 식별자
+# label : 화면 표시 이름
+# terms : 실제 소스 검색에 쓰는 검색어 (여러 개면 각각 검색 후 합침)
+categories:
+  - key: cafe
+    label: "카페"
+    terms: ["카페", "커피"]
+  - key: korean
+    label: "한식"
+    terms: ["한식", "백반", "국밥"]
+  - key: japanese
+    label: "일식"
+    terms: ["일식", "초밥", "돈카츠", "라멘"]
+  - key: chinese
+    label: "중식"
+    terms: ["중식", "중국집"]
+  - key: western
+    label: "양식"
+    terms: ["양식", "파스타", "스테이크"]
+  - key: chicken
+    label: "치킨"
+    terms: ["치킨"]
+  - key: meat
+    label: "고기/구이"
+    terms: ["고기집", "삼겹살", "곱창"]
+  - key: bar
+    label: "술집/포차"
+    terms: ["술집", "포차", "이자카야"]
+
+# 평점 / 리뷰 필터 기본 임계값 (소스별)
+#   min_rating       : 이 별점 이상만 통과 (0 이면 평점 필터 미적용)
+#   min_reviews      : 이 리뷰 수 이상만 통과 (0 이면 미적용)
+#   include_no_score : true 면 "평점/후기 미제공" 장소도 결과에 포함
+rating:
+  kakao:
+    min_rating: 3.5
+    min_reviews: 0
+    include_no_score: false
+  naver:
+    # 네이버는 별점을 대부분 제공하지 않음 → min_reviews 위주로 필터
+    min_rating: 0.0
+    min_reviews: 10
+    include_no_score: false

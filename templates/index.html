@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>맛집 검색기</title>
+
+  <!-- Leaflet + Leaflet.draw (로컬 실행이라 CDN 사용) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+</head>
+<body>
+  <header>
+    <h1>🍜 맛집 검색기</h1>
+    <span id="mock-badge" class="badge hidden">MOCK 모드 (가짜 데이터)</span>
+  </header>
+
+  <div id="layout">
+    <!-- 좌: 지도 -->
+    <div id="map-pane">
+      <div id="map"></div>
+      <p class="hint">지도 우측 상단 도구로 <b>사각형/다각형</b>을 그려 검색 영역을 지정하세요.</p>
+    </div>
+
+    <!-- 우: 컨트롤 -->
+    <aside id="controls">
+      <section>
+        <h2>1. 카테고리</h2>
+        <div id="categories" class="chips"></div>
+      </section>
+
+      <section>
+        <h2>2. 평점 / 리뷰 필터</h2>
+        <div id="rating-filters"></div>
+      </section>
+
+      <section>
+        <h2>3. 수집 개수</h2>
+        <label>소스별 개수
+          <input type="number" id="limit" min="1" value="30" />
+        </label>
+        <label class="inline">
+          <input type="checkbox" id="fetch-all" /> 모두 가져오기 (영역 내 전부)
+        </label>
+      </section>
+
+      <button id="search-btn">맛집 검색</button>
+      <div id="status" class="status"></div>
+    </aside>
+  </div>
+
+  <!-- 결과 테이블 -->
+  <section id="results-pane" class="hidden">
+    <h2>결과 <span id="result-count"></span></h2>
+    <div class="table-wrap">
+      <table id="results-table">
+        <thead></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
