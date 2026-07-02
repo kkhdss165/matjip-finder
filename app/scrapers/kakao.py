@@ -16,6 +16,7 @@ from typing import List
 from urllib.parse import quote
 
 from .base import BaseScraper
+from .. import progress
 from ..geo import Tile
 from ..models import Place
 
@@ -108,23 +109,33 @@ class KakaoScraper(BaseScraper):
         }
         timeout = int(self.scrape_cfg.get("nav_timeout_ms", 15000))
         total = len(places)
-        for idx, p in enumerate(places, 1):
-            url = _DETAIL.format(pid=p.place_id)
-            try:
-                resp = await context.request.get(url, headers=headers, timeout=timeout)
-                if resp.ok:
-                    self._parse_detail(await resp.json(), p)
-            except Exception:
-                pass
-            if idx % 15 == 0 or idx == total:
-                print(f"[kakao] 평점 보강 {idx}/{total}", flush=True)
-            await self.polite_wait()
+        # dapi/place-api 는 공식 API → 동시 요청 안전. 순차(≈90s) 대신 병렬로 대폭 단축.
+        concurrency = int(self.scrape_cfg.get("enrich_concurrency", 8))
+        sem = asyncio.Semaphore(max(1, concurrency))
+        progress.update(phase="카카오 평점 보강", done=0, total=total)
+        done = 0
+
+        async def one(p):
+            nonlocal done
+            async with sem:
+                url = _DETAIL.format(pid=p.place_id)
+                try:
+                    resp = await context.request.get(url, headers=headers, timeout=timeout)
+                    if resp.ok:
+                        self._parse_detail(await resp.json(), p)
+                except Exception:
+                    pass
+            done += 1
+            if done % 15 == 0 or done == total:
+                print(f"[kakao] 평점 보강 {done}/{total}", flush=True)
+                progress.update(done=done)
+
+        await asyncio.gather(*[one(p) for p in places])
 
     def _parse_detail(self, data: dict, p: Place) -> None:
         data = data or {}
-        # 카카오맵 별점/리뷰수
+        # 카카오맵 별점 + '후기'(평점 있는 리뷰) 수만 사용.
+        # 블로그 리뷰는 평점이 없으므로 리뷰수에서 제외한다. (예: 후기 3 · 블로그 17 → 3)
         score_set = (data.get("kakaomap_review", {}) or {}).get("score_set", {}) or {}
         p.rating = self._to_float(score_set.get("average_score"))
-        kakao_rev = self._to_int(score_set.get("review_count"))
-        blog_rev = self._to_int((data.get("blog_review", {}) or {}).get("review_count"))
-        p.review_count = kakao_rev + blog_rev
+        p.review_count = self._to_int(score_set.get("review_count"))

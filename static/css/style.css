@@ -101,7 +101,18 @@ body {
   border-bottom: 1px solid var(--line); background: #fafbfc;
 }
 #result-head b { color: var(--naver); font-size: 15px; }
+#result-sub { color: var(--sub); font-size: 12px; }
 #result-list { flex: 1; overflow-y: auto; }
+
+/* 결과 내 필터/정렬 툴바 */
+#result-tools { padding: 10px 18px; border-bottom: 1px solid var(--line); background: #fff; }
+#name-filter, #sort-select {
+  width: 100%; padding: 8px 10px; font-size: 13px; font-family: inherit;
+  border: 1px solid var(--line); border-radius: 8px; margin-bottom: 8px; background: #fff;
+}
+#name-filter:focus, #sort-select:focus { outline: none; border-color: var(--naver); }
+#cat-filter { gap: 5px; }
+.mini-chip { padding: 4px 10px; font-size: 12px; }
 
 .place-card {
   display: flex; gap: 10px; padding: 14px 18px;

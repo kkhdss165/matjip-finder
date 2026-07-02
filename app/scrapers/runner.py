@@ -25,6 +25,7 @@ _STEALTH = (
 )
 
 from .. import filters as filt
+from .. import progress
 from ..geo import make_grid, to_polygon
 from ..merge import merge_places
 from ..models import Place, SearchRequest

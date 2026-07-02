@@ -61,7 +61,22 @@
       <!-- 결과 리스트 -->
       <section id="result-section" class="hidden">
         <div id="result-head">
-          검색 결과 <b id="result-count">0</b>
+          검색 결과 <b id="result-count">0</b><span id="result-sub"></span>
+        </div>
+        <!-- 결과 내 필터/정렬 (재검색 없이 프론트에서) -->
+        <div id="result-tools">
+          <input id="name-filter" type="text" placeholder="가게명 검색" />
+          <select id="sort-select">
+            <option value="default">기본 (평점·리뷰순)</option>
+            <option value="name-asc">가게명 ㄱ→ㅎ</option>
+            <option value="name-desc">가게명 ㅎ→ㄱ</option>
+            <option value="kakao-desc">카카오 평점 높은순</option>
+            <option value="kakao-asc">카카오 평점 낮은순</option>
+            <option value="naver-desc">네이버 평점 높은순</option>
+            <option value="naver-asc">네이버 평점 낮은순</option>
+            <option value="review-desc">리뷰 많은순</option>
+          </select>
+          <div id="cat-filter" class="chips"></div>
         </div>
         <div id="result-list"></div>
       </section>

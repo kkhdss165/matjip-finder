@@ -6,6 +6,7 @@ import traceback
 
 from flask import Flask, jsonify, render_template, request
 
+from . import progress
 from .config import load_filters, load_settings
 from .models import SearchRequest
 from .scrapers.runner import run_search
@@ -39,6 +40,12 @@ def api_config():
     })
 
 
+@app.route("/api/progress")
+def api_progress():
+    """수집 진행상태 스냅샷 (프론트가 폴링)."""
+    return jsonify(progress.snapshot())
+
+
 @app.route("/api/search", methods=["POST"])
 def api_search():
     settings = load_settings()
@@ -56,12 +63,15 @@ def api_search():
         fetch_all=bool(body.get("fetch_all", False)),
         filters=body.get("filters", {}),
     )
+    progress.start()
     try:
         result = run_search(req, settings, filters_cfg)
         return jsonify(result)
     except Exception as e:  # noqa: BLE001
         traceback.print_exc()
         return jsonify({"error": f"검색 중 오류: {e}"}), 500
+    finally:
+        progress.finish()
 
 
 def main():

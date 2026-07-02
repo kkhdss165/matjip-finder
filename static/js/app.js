@@ -89,6 +89,9 @@ function collectFilters() {
 
 // 3) 검색
 const btn = document.getElementById("search-btn");
+let pollTimer = null;
+let searchStart = 0;
+
 btn.onclick = () => {
   if (!drawnGeometry) { setStatus("먼저 지도에서 영역을 그려주세요.", true); return; }
   const payload = {
@@ -99,14 +102,38 @@ btn.onclick = () => {
     filters: collectFilters(),
   };
   btn.disabled = true;
-  setStatus("수집 중… 영역이 넓으면 시간이 걸립니다 ⏳");
+  searchStart = Date.now();
+  setStatus("⏳ 수집 준비 중…");
+  startPolling();
   fetch("/api/search", { method: "POST", headers: { "Content-Type": "application/json" },
                          body: JSON.stringify(payload) })
     .then((r) => r.json().then((j) => ({ ok: r.ok, j })))
-    .then(({ ok, j }) => { if (ok) { renderResults(j); collapseSearch(); } else setStatus(j.error || "오류", true); })
+    .then(({ ok, j }) => {
+      if (ok) { j._elapsed = (Date.now() - searchStart) / 1000; renderResults(j); collapseSearch(); }
+      else setStatus(j.error || "오류", true);
+    })
     .catch((e) => setStatus("요청 실패: " + e, true))
-    .finally(() => { btn.disabled = false; });
+    .finally(() => { stopPolling(); btn.disabled = false; });
 };
+
+// ① 진행률 폴링
+function startPolling() {
+  stopPolling();
+  pollTimer = setInterval(async () => {
+    try {
+      const p = await fetch("/api/progress").then((r) => r.json());
+      if (!p.active) return;
+      let txt = p.phase || "수집 중";
+      if (p.total > 0) {
+        const pct = Math.round((p.done / p.total) * 100);
+        txt += ` ${p.done}/${p.total} (${pct}%)`;
+      }
+      const sec = ((Date.now() - searchStart) / 1000).toFixed(0);
+      setStatus(`⏳ ${txt} · ${sec}초`);
+    } catch (e) { /* ignore */ }
+  }, 1000);
+}
+function stopPolling() { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } }
 
 // 검색 패널 접기/펼치기 (결과 공간 확보)
 function collapseSearch() {
@@ -136,22 +163,108 @@ function buildSummaryText() {
   return parts.join(" · ");
 }
 
-// 4) 결과 → 사이드바 카드 + 지도 핀
+// 4) 결과 상태 저장 + 뷰(필터/정렬) 렌더
+let allPlaces = [];       // 검색 원본 (필터/정렬은 이 위에서만, 재검색 없음)
+let resultSources = [];
+const catFilter = new Set();  // 결과 내 카테고리 필터 (비어있으면 전체)
+
 function renderResults(data) {
+  allPlaces = data.places || [];
+  resultSources = data.sources || [];
+
   const parts = Object.entries(data.per_source || {}).map(([k, v]) => `${SRC_LABEL[k] || k} ${v}`);
-  setStatus(`완료 · 타일 ${data.tiles}개 · [${parts.join(" / ")}]`);
+  const sec = data._elapsed != null ? ` · ${data._elapsed.toFixed(1)}초` : "";
+  setStatus(`완료 · 타일 ${data.tiles}개 · [${parts.join(" / ")}]${sec}`);
 
   document.getElementById("result-section").classList.remove("hidden");
-  document.getElementById("result-count").textContent = data.count;
+  document.getElementById("result-sub").textContent = sec;
 
+  // 결과 내 카테고리 필터 칩 (검색에 쓴 카테고리들)
+  catFilter.clear();
+  buildCatFilterChips();
+  document.getElementById("name-filter").value = "";
+  document.getElementById("sort-select").value = "default";
+
+  applyView();
+}
+
+function buildCatFilterChips() {
+  const box = document.getElementById("cat-filter");
+  box.innerHTML = "";
+  const keys = (cfg.categories || []).filter((c) => selectedCats.has(c.key));
+  if (keys.length < 2) return;  // 카테고리 1개 이하면 필터 칩 불필요
+  keys.forEach((c) => {
+    const chip = document.createElement("span");
+    chip.className = "chip mini-chip";
+    chip.textContent = c.label;
+    chip.onclick = () => {
+      if (catFilter.has(c.key)) { catFilter.delete(c.key); chip.classList.remove("on"); }
+      else { catFilter.add(c.key); chip.classList.add("on"); }
+      applyView();
+    };
+    box.appendChild(chip);
+  });
+}
+
+// 필터 + 정렬 적용 후 카드/핀 렌더
+function applyView() {
+  let view = allPlaces.slice();
+
+  // 가게명 검색
+  const q = document.getElementById("name-filter").value.trim().toLowerCase();
+  if (q) view = view.filter((p) => (p.name || "").toLowerCase().includes(q));
+
+  // 카테고리 필터 (선택된 게 있으면 그 카테고리들만)
+  if (catFilter.size) {
+    const byKey = {};
+    (cfg.categories || []).forEach((c) => (byKey[c.key] = c));
+    view = view.filter((p) => {
+      const cat = p.category || "";
+      return [...catFilter].some((k) => (byKey[k].match || [byKey[k].label]).some((m) => cat.includes(m)));
+    });
+  }
+
+  sortView(view, document.getElementById("sort-select").value);
+  renderCards(view);
+  document.getElementById("result-count").textContent = view.length;
+}
+
+function ratingOf(p, src) { const s = p.sources[src]; return s && s.rating != null ? s.rating : null; }
+function reviewsOf(p) { return resultSources.reduce((a, s) => a + ((p.sources[s] && p.sources[s].review_count) || 0), 0); }
+
+function sortView(view, mode) {
+  const byRating = (src, dir) => (a, b) => {
+    const ra = ratingOf(a, src), rb = ratingOf(b, src);
+    if (ra == null && rb == null) return 0;
+    if (ra == null) return 1;   // 평점 없는 곳은 항상 뒤로
+    if (rb == null) return -1;
+    return dir * (rb - ra);
+  };
+  switch (mode) {
+    case "name-asc": view.sort((a, b) => a.name.localeCompare(b.name, "ko")); break;
+    case "name-desc": view.sort((a, b) => b.name.localeCompare(a.name, "ko")); break;
+    case "kakao-desc": view.sort(byRating("kakao", 1)); break;
+    case "kakao-asc": view.sort(byRating("kakao", -1)); break;
+    case "naver-desc": view.sort(byRating("naver", 1)); break;
+    case "naver-asc": view.sort(byRating("naver", -1)); break;
+    case "review-desc": view.sort((a, b) => reviewsOf(b) - reviewsOf(a)); break;
+    default: break;  // 서버가 준 기본 순서(평점·리뷰) 유지
+  }
+}
+
+function renderCards(places) {
   const list = document.getElementById("result-list");
   list.innerHTML = "";
   markersLayer.clearLayers();
   cards = [];
   activeIdx = -1;
 
-  data.places.forEach((p, i) => {
-    // 카드
+  if (!places.length) {
+    list.innerHTML = '<div style="padding:24px;color:var(--sub);font-size:13px;text-align:center">조건에 맞는 결과가 없습니다.</div>';
+    return;
+  }
+
+  places.forEach((p, i) => {
     const card = document.createElement("div");
     card.className = "place-card";
     card.innerHTML = `
@@ -159,25 +272,28 @@ function renderResults(data) {
       <div class="pc-body">
         <div class="pc-name">${esc(p.name)}</div>
         <div class="pc-cat">${esc(p.category) || "-"}</div>
-        <div class="pc-sources">${(data.sources || []).map((s) => srcRow(p.sources[s], s)).join("")}</div>
+        <div class="pc-sources">${resultSources.map((s) => srcRow(p.sources[s], s)).join("")}</div>
       </div>`;
     card.onclick = () => focusPlace(i);
     list.appendChild(card);
 
-    // 지도 핀
     const top = i < 3;
     const pin = L.divIcon({ className: "", iconSize: [26, 26], iconAnchor: [13, 26],
       html: `<div class="map-pin ${top ? "top" : ""}"><span>${i + 1}</span></div>` });
     const marker = L.marker([p.lat, p.lng], { icon: pin }).addTo(markersLayer);
-    marker.bindPopup(popupHtml(p, data.sources));
+    marker.bindPopup(popupHtml(p, resultSources));
     marker.on("click", () => focusPlace(i, false));
 
     cards.push({ el: card, marker, place: p });
   });
 
-  if (data.places.length) map.fitBounds(markersLayer.getBounds().pad(0.15));
-  document.getElementById("result-list").scrollTop = 0;
+  map.fitBounds(markersLayer.getBounds().pad(0.15));
+  list.scrollTop = 0;
 }
+
+// 필터/정렬 입력 이벤트
+document.getElementById("name-filter").addEventListener("input", applyView);
+document.getElementById("sort-select").addEventListener("change", applyView);
 
 function focusPlace(i, pan = true) {
   if (activeIdx >= 0 && cards[activeIdx]) cards[activeIdx].el.classList.remove("active");

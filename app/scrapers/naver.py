@@ -17,6 +17,7 @@ from typing import Dict, List
 from urllib.parse import quote
 
 from .base import BaseScraper
+from .. import progress
 from ..geo import Tile, point_in_polygon
 from ..models import Place
 
@@ -97,6 +98,8 @@ class NaverScraper(BaseScraper):
                 pass
 
             for ti, term in enumerate(terms, 1):
+                progress.update(phase=f"네이버 '{term}' 수집", done=ti, total=len(terms),
+                                count=len(found))
                 print(f"[naver] '{term}' 수집중… ({ti}/{len(terms)})", flush=True)
                 for attempt in range(2):  # 빈 결과면 1회 재시도
                     n_before = len(found)

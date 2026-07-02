@@ -5,6 +5,7 @@ import asyncio
 import random
 from typing import Dict, List
 
+from .. import progress
 from ..geo import Tile, point_in_polygon
 from ..models import Place
 
@@ -31,12 +32,14 @@ class BaseScraper:
         """
         found: Dict[str, Place] = {}
         n = len(tiles)
+        progress.update(phase=f"{self.source} 목록 수집", done=0, total=n)
         for i, tile in enumerate(tiles, 1):
             for term in terms:
                 for p in await self.search_tile(context, tile, term):
                     if point_in_polygon(poly, p.lng, p.lat):
                         found.setdefault(p.key(), p)
                 await self.search_wait()
+            progress.update(done=i, count=len(found))
             if i % 5 == 0 or i == n:
                 print(f"[{self.source}] 타일 {i}/{n} · 누적 {len(found)}곳", flush=True)
         kept = list(found.values())
