@@ -30,14 +30,19 @@ class BaseScraper:
         context 는 runner 가 만든 (영속) BrowserContext 를 공유받는다.
         """
         found: Dict[str, Place] = {}
-        for tile in tiles:
+        n = len(tiles)
+        for i, tile in enumerate(tiles, 1):
             for term in terms:
                 for p in await self.search_tile(context, tile, term):
                     if point_in_polygon(poly, p.lng, p.lat):
                         found.setdefault(p.key(), p)
-                await self.polite_wait()
+                await self.search_wait()
+            if i % 5 == 0 or i == n:
+                print(f"[{self.source}] 타일 {i}/{n} · 누적 {len(found)}곳", flush=True)
         kept = list(found.values())
         enrich_cap = hard_cap if fetch_all else min(hard_cap, max(limit * 4, 40))
+        n_enrich = min(len(kept), enrich_cap)
+        print(f"[{self.source}] 목록 {len(kept)}곳 → 평점 보강 {n_enrich}곳", flush=True)
         await self.enrich(context, kept[:enrich_cap])
         return kept
 
@@ -50,6 +55,11 @@ class BaseScraper:
         return
 
     # ── 공통 유틸 ────────────────────────────────────────────────
+    async def search_wait(self) -> None:
+        """목록 검색 루프의 요청 간 대기. 기본은 스크래핑용 polite_wait.
+        공식 API(카카오 dapi 등) 소스는 오버라이드해 짧게 둘 수 있다."""
+        await self.polite_wait()
+
     async def polite_wait(self) -> None:
         """요청 사이 랜덤 대기 + 주기적 cooldown (IP 블락 회피)."""
         cfg = self.scrape_cfg

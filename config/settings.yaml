@@ -24,7 +24,7 @@ collection:
 #   max_tiles   : 안전장치 — 한 번 검색이 만들 수 있는 최대 타일 수.
 grid:
   tile_size_m: 700
-  max_tiles: 60
+  max_tiles: 24     # 타일이 많을수록 커버리지↑ 속도↓. 너무 넓으면 자동으로 타일 키움
 
 # 카카오 목록 검색용 REST 키.
 # ⚠️ 실제 키는 여기에 두지 말고 config/settings.local.yaml (gitignore됨) 에 넣으세요.
@@ -35,7 +35,7 @@ kakao:
 # 스크래핑 동작 (IP 블락 회피 > 속도)
 scrape:
   mock: false               # true 면 네트워크 없이 가짜 데이터로 UI/필터 전체 흐름 테스트
-  headless: false           # 네이버 anti-bot 우회를 위해 헤드풀 권장(로컬 실행). 창이 잠깐 뜸.
+  headless: true            # true = 크롬 'new headless'(창 없이 실행, 네이버 통과). false = 창 보임(디버그용)
   concurrency: 2            # 동시에 띄우는 브라우저 컨텍스트 수
   min_delay_ms: 400         # 요청 사이 최소 대기
   max_delay_ms: 1200        # 요청 사이 최대 대기 (이 사이 랜덤)

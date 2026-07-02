@@ -84,7 +84,8 @@ class NaverScraper(BaseScraper):
         target = hard_cap if fetch_all else max(limit, 20)
         scrolls = 40 if fetch_all else 15   # plateau 감지로 수렴 시 조기 종료
 
-        page = await context.new_page()
+        # 영속 컨텍스트가 만들어 둔 초기 페이지를 재사용(about:blank 잔여 탭 방지).
+        page = context.pages[0] if context.pages else await context.new_page()
         found: Dict[str, Place] = {}
         try:
             # warmup: 쿠키/세션 확보 (봇 탐지 완화)
@@ -95,13 +96,15 @@ class NaverScraper(BaseScraper):
             except Exception:
                 pass
 
-            for term in terms:
+            for ti, term in enumerate(terms, 1):
+                print(f"[naver] '{term}' 수집중… ({ti}/{len(terms)})", flush=True)
                 for attempt in range(2):  # 빈 결과면 1회 재시도
                     n_before = len(found)
                     await self._search_term(page, term, poly, found, timeout, scrolls)
                     if len(found) > n_before:
                         break
                     await page.wait_for_timeout(1500)
+                print(f"[naver] '{term}' 완료 · 누적 {len(found)}곳", flush=True)
                 await self.polite_wait()
                 if not fetch_all and len(found) >= target:
                     break

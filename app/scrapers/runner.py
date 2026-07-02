@@ -84,7 +84,12 @@ async def _search_async(request: SearchRequest, settings: dict, filters_cfg: dic
     mock = bool(scfg.get("mock", False))
     headless = bool(scfg.get("headless", True))
     ua = scfg.get("user_agent") or None
+    # 네이버는 '구' 헤드리스(--headless)면 봇 차단(405). 대신 크롬 'new headless'
+    # (--headless=new)를 쓰면 창 없이도 실제 브라우저처럼 렌더돼 통과한다.
+    # 그래서 playwright headless 는 항상 False 로 두고, 창을 숨기려면 --headless=new 를 넣는다.
     args = ["--disable-blink-features=AutomationControlled"]
+    if headless:
+        args.append("--headless=new")   # 창 없이 실행(권장). headless:false 면 창이 보임(디버그용).
 
     async with async_playwright() as pw:
         # 실제 수집은 영속 프로필(쿠키/세션 유지 → 봇 탐지 완화)로,
@@ -94,19 +99,28 @@ async def _search_async(request: SearchRequest, settings: dict, filters_cfg: dic
             context = await browser.new_context(user_agent=ua, locale="ko-KR")
             closer = browser
         else:
+            # headless 는 args 의 --headless=new 로 제어하므로 여기선 항상 False.
             context = await pw.chromium.launch_persistent_context(
-                _PROFILE_DIR, headless=headless, args=args,
+                _PROFILE_DIR, headless=False, args=args,
                 user_agent=ua, locale="ko-KR",
                 viewport={"width": 1280, "height": 900})
             closer = context
         try:
             await context.add_init_script(_STEALTH)
+            print(f"[검색] 타일 {len(tiles)}개 · 검색어 {terms} · 소스 {all_sources}",
+                  flush=True)
             for name, scraper in scrapers.items():
+                print(f"[{name}] 수집 시작", flush=True)
                 kept = await scraper.collect(
                     context, tiles, terms, poly, limit,
                     request.fetch_all, hard_cap)
+                # 선택한 카테고리에 실제로 해당하는 것만 남김(엉뚱한 카테고리 혼입 제거)
+                before = len(kept)
+                kept = filt.filter_by_category(
+                    kept, request.categories, filters_cfg.get("categories", []))
                 # 소스별 평점/리뷰 필터를 병합 전에 적용(각 소스 기준 통과분만 남김)
                 kept = filt.apply_filters(kept, request.filters)
+                print(f"[{name}] 카테고리+평점 필터 {before} → {len(kept)}곳", flush=True)
                 per_source[name] = len(kept)
                 survivors.extend(kept)
         finally:
@@ -115,6 +129,7 @@ async def _search_async(request: SearchRequest, settings: dict, filters_cfg: dic
     merged = merge_places(survivors, all_sources)
     if not request.fetch_all:
         merged = merged[:limit]
+    print(f"[검색 완료] 병합 {len(merged)}곳 (표시 상한 {limit})", flush=True)
 
     return {
         "count": len(merged),

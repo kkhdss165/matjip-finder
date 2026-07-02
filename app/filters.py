@@ -37,6 +37,36 @@ def passes(place: Place, rule: dict) -> bool:
     return True
 
 
+def filter_by_category(places: List[Place], selected_keys: List[str],
+                       categories_cfg: List[dict]) -> List[Place]:
+    """선택한 카테고리에 실제로 해당하는 장소만 남긴다.
+
+    소스 키워드 검색이 fuzzy 해서 엉뚱한 카테고리(선택 안 한 양식/카페 등)가
+    섞여 오므로, 각 카테고리의 match 키워드가 장소의 category 문자열에 들어가는지
+    검사한다. 선택된 카테고리가 없으면(=전체) 필터하지 않는다.
+    """
+    if not selected_keys:
+        return places
+    by_key = {c["key"]: c for c in categories_cfg}
+    accept: List[str] = []
+    for k in selected_keys:
+        c = by_key.get(k)
+        if not c:
+            continue
+        accept.extend(c.get("match") or [c.get("label", "")])
+    accept = [a for a in accept if a]
+    if not accept:
+        return places
+
+    out: List[Place] = []
+    for p in places:
+        cat = p.category or ""
+        # 카테고리 정보가 없으면 판단 보류(유지), 있으면 match 검사
+        if not cat or any(a in cat for a in accept):
+            out.append(p)
+    return out
+
+
 def apply_filters(places: List[Place], filters: dict) -> List[Place]:
     """소스별 rule 을 적용해 통과한 장소만 반환."""
     out: List[Place] = []
