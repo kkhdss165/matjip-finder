@@ -3,7 +3,7 @@
 
 server:
   host: "127.0.0.1"
-  port: 5000
+  port: 5001          # macOS AirPlay Receiver 가 5000 을 쓰므로 5001 사용
   debug: true
 
 # 어떤 소스를 사용할지 on/off

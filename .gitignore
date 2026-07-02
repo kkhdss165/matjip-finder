@@ -40,3 +40,7 @@ Thumbs.db
 .idea/
 .vscode/
 *.swp
+
+# 서버 런타임
+.server.pid
+server.log
