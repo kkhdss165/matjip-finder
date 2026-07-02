@@ -48,10 +48,10 @@ categories:
 rating:
   kakao:
     min_rating: 3.5
-    min_reviews: 0
+    min_reviews: 10
     include_no_score: false
   naver:
     # 네이버는 별점을 대부분 제공하지 않음 → min_reviews 위주로 필터
-    min_rating: 0.0
+    min_rating: 4.3
     min_reviews: 10
     include_no_score: false
