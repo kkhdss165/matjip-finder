@@ -8,7 +8,7 @@ server:
 
 # 어떤 소스를 사용할지 on/off
 sources:
-  kakao: false    # developers.kakao.com 에서 카카오맵 서비스 켠 뒤 true 로 바꾸세요
+  kakao: true
   naver: true
 
 # 수집 개수 제어

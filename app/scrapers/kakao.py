@@ -19,7 +19,8 @@ from ..geo import Tile
 from ..models import Place
 
 _KEYWORD = "https://dapi.kakao.com/v2/local/search/keyword.json"
-_DETAIL = "https://place.map.kakao.com/main/v/{pid}"
+# 상세(평점/리뷰) 엔드포인트. appversion/pf/Origin 헤더가 없으면 406.
+_DETAIL = "https://place-api.map.kakao.com/places/panel3/{pid}"
 
 
 class KakaoScraper(BaseScraper):
@@ -92,8 +93,13 @@ class KakaoScraper(BaseScraper):
         if not places:
             return
         headers = {
-            "Referer": "https://place.map.kakao.com/",
             "User-Agent": self.scrape_cfg.get("user_agent", ""),
+            "Accept": "application/json, text/plain, */*",
+            "Accept-Language": "ko-KR",
+            "Referer": "https://place.map.kakao.com/",
+            "Origin": "https://place.map.kakao.com",
+            "appversion": "6.6.0",   # 이 헤더 없으면 406
+            "pf": "PC",
         }
         timeout = int(self.scrape_cfg.get("nav_timeout_ms", 15000))
         for p in places:
@@ -107,11 +113,10 @@ class KakaoScraper(BaseScraper):
             await self.polite_wait()
 
     def _parse_detail(self, data: dict, p: Place) -> None:
-        basic = (data or {}).get("basicInfo", {}) or {}
-        fb = basic.get("feedback", {}) or {}
-        scoresum = self._to_float(fb.get("scoresum"))
-        scorecnt = self._to_int(fb.get("scorecnt"))
-        if scoresum and scorecnt:
-            p.rating = round(scoresum / scorecnt, 2)
-        # 리뷰수: 별점 후기 + 블로그 후기 합산
-        p.review_count = self._to_int(fb.get("scorecnt")) + self._to_int(fb.get("blogrvwcnt"))
+        data = data or {}
+        # 카카오맵 별점/리뷰수
+        score_set = (data.get("kakaomap_review", {}) or {}).get("score_set", {}) or {}
+        p.rating = self._to_float(score_set.get("average_score"))
+        kakao_rev = self._to_int(score_set.get("review_count"))
+        blog_rev = self._to_int((data.get("blog_review", {}) or {}).get("review_count"))
+        p.review_count = kakao_rev + blog_rev

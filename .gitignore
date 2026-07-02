@@ -26,6 +26,14 @@ logs/
 outputs/
 tmp/
 
+# ── Claude 로컬 작업 보조 (커밋 제외) ─────────────────
+# CLAUDE.md: 세션 핸드오프 메모, .claude/: /commit 스킬(개인 계정 하드코딩)
+CLAUDE.md
+**/CLAUDE.md
+.claude/
+**/SKILL.md
+skill.md
+
 # ── OS / 에디터 ──────────────────────────────────────
 .DS_Store
 Thumbs.db

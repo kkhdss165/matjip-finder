@@ -20,23 +20,32 @@ from .base import BaseScraper
 from ..geo import Tile, point_in_polygon
 from ..models import Place
 
-_LIST_URL = "https://pcmap.place.naver.com/restaurant/list?query={q}"
+# 중심 좌표(x=lng, y=lat)를 넣으면 검색이 그 지역으로 localize 된다(실측).
+# (없으면 전국 결과가 나와 대부분 폴리곤 밖으로 버려짐)
+_LIST_URL = "https://pcmap.place.naver.com/restaurant/list?query={q}&x={x}&y={y}"
 
-# 페이지 안에서 실제로 스크롤되는 내부 컨테이너를 찾아 맨 아래로 내린다.
+# 목록의 '안쪽' 스크롤 컨테이너를 맨 아래로 내리고, 현재 li 개수를 돌려준다.
+# 네이버 목록 컨테이너의 고정 id(#_pcmap_list_scroll_container)를 우선 쓰고,
+# 없으면 overflow 가 scroll 인 엘리먼트 중 li 가 가장 많은 것으로 폴백한다.
+# (window 바깥 스크롤은 목록 페이지네이션을 트리거하지 못함 — 반드시 내부 컨테이너)
 _SCROLL_INNER_JS = """
 () => {
-  const cands = Array.from(document.querySelectorAll('div, ul, section'));
-  let best = null, bestScore = 0;
-  for (const el of cands) {
-    const oy = getComputedStyle(el).overflowY;
-    if ((oy === 'auto' || oy === 'scroll') &&
-        el.scrollHeight > el.clientHeight + 200) {
-      const score = el.scrollHeight + el.querySelectorAll('li').length * 1000;
-      if (score > bestScore) { bestScore = score; best = el; }
+  let el = document.querySelector('#_pcmap_list_scroll_container');
+  if (!el) {
+    let best = null, bestScore = 0;
+    for (const c of document.querySelectorAll('div, ul, section')) {
+      const oy = getComputedStyle(c).overflowY;
+      if ((oy === 'auto' || oy === 'scroll') &&
+          c.scrollHeight > c.clientHeight + 200) {
+        const score = c.scrollHeight + c.querySelectorAll('li').length * 1000;
+        if (score > bestScore) { bestScore = score; best = c; }
+      }
     }
+    el = best;
   }
-  if (best) best.scrollTop = best.scrollHeight;
-  else window.scrollTo(0, document.body.scrollHeight);
+  if (!el) { window.scrollTo(0, document.body.scrollHeight); return -1; }
+  el.scrollTop = el.scrollHeight;
+  return el.querySelectorAll('li').length;
 }
 """
 
@@ -73,7 +82,7 @@ class NaverScraper(BaseScraper):
                       limit: int, fetch_all: bool, hard_cap: int) -> List[Place]:
         timeout = int(self.scrape_cfg.get("nav_timeout_ms", 15000))
         target = hard_cap if fetch_all else max(limit, 20)
-        scrolls = 12 if fetch_all else 6
+        scrolls = 40 if fetch_all else 15   # plateau 감지로 수렴 시 조기 종료
 
         page = await context.new_page()
         found: Dict[str, Place] = {}
@@ -101,20 +110,30 @@ class NaverScraper(BaseScraper):
         return list(found.values())
 
     async def _search_term(self, page, term, poly, found, timeout, scrolls) -> None:
-        url = _LIST_URL.format(q=quote(term))
+        cx, cy = poly.centroid.x, poly.centroid.y  # 검색을 폴리곤 지역으로 localize
+        url = _LIST_URL.format(q=quote(term), x=cx, y=cy)
         try:
             await page.goto(url, wait_until="domcontentloaded", timeout=timeout)
             await page.wait_for_timeout(3000)
         except Exception:
             return
 
-        # 내부 컨테이너를 반복 스크롤해 더 많은 항목을 로드
+        # 내부 컨테이너를 점진 스크롤. li 개수가 더 안 늘면(plateau) 조기 종료.
+        last = -1
+        stable = 0
         for _ in range(scrolls):
             try:
-                await page.evaluate(_SCROLL_INNER_JS)
+                count = await page.evaluate(_SCROLL_INNER_JS)
             except Exception:
-                pass
+                count = last
             await page.wait_for_timeout(1100)
+            if count <= last:
+                stable += 1
+                if stable >= 2:  # 2연속 증가 없음 → 끝까지 로드됨
+                    break
+            else:
+                stable = 0
+            last = count
 
         try:
             items = await page.evaluate(_EXTRACT_JS)
