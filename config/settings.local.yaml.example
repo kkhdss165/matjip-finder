@@ -1,0 +1,5 @@
+# 이 파일을 settings.local.yaml 로 복사한 뒤 실제 키를 채우세요.
+#   cp config/settings.local.yaml.example config/settings.local.yaml
+# settings.local.yaml 은 .gitignore 되어 커밋되지 않습니다.
+kakao:
+  rest_api_key: "여기에_카카오_REST_API_키"

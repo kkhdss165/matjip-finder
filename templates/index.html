@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>맛집 검색기</title>
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+</head>
+<body>
+  <div id="app">
+    <!-- 좌: 사이드바 -->
+    <aside id="sidebar">
+      <header id="brand">
+        <span class="logo">🍜</span>
+        <span class="title">맛집 검색기</span>
+        <span id="mock-badge" class="badge hidden">MOCK</span>
+      </header>
+
+      <!-- 접힌 상태 요약 바 (결과 나오면 표시) -->
+      <button id="search-summary" class="hidden" type="button">
+        <span class="ss-body">
+          <span class="ss-title">🔍 검색 조건</span>
+          <span class="ss-detail" id="ss-detail"></span>
+        </span>
+        <span class="ss-edit">수정 ▾</span>
+      </button>
+
+      <!-- 검색 패널 -->
+      <section id="search-panel">
+        <div class="field">
+          <div class="field-label">카테고리</div>
+          <div id="categories" class="chips"></div>
+        </div>
+
+        <div class="field">
+          <div class="field-label">평점 · 리뷰 필터</div>
+          <div id="rating-filters"></div>
+        </div>
+
+        <div class="field row-field">
+          <label class="mini">수집 개수
+            <input type="number" id="limit" min="1" value="30" />
+          </label>
+          <label class="mini checkbox">
+            <input type="checkbox" id="fetch-all" /> 모두 가져오기
+          </label>
+        </div>
+
+        <button id="search-btn">
+          <span class="btn-icon">🔍</span> 맛집 검색
+        </button>
+        <div id="status" class="status"></div>
+      </section>
+
+      <!-- 결과 리스트 -->
+      <section id="result-section" class="hidden">
+        <div id="result-head">
+          검색 결과 <b id="result-count">0</b><span id="result-sub"></span>
+        </div>
+        <!-- 결과 내 필터/정렬 (재검색 없이 프론트에서) -->
+        <div id="result-tools">
+          <input id="name-filter" type="text" placeholder="가게명 검색" />
+          <select id="sort-select">
+            <option value="default">기본 (평점·리뷰순)</option>
+            <option value="name-asc">가게명 ㄱ→ㅎ</option>
+            <option value="name-desc">가게명 ㅎ→ㄱ</option>
+            <option value="kakao-desc">카카오 평점 높은순</option>
+            <option value="kakao-asc">카카오 평점 낮은순</option>
+            <option value="naver-desc">네이버 평점 높은순</option>
+            <option value="naver-asc">네이버 평점 낮은순</option>
+            <option value="review-desc">리뷰 많은순</option>
+          </select>
+          <div id="cat-filter" class="chips"></div>
+        </div>
+        <div id="result-list"></div>
+      </section>
+    </aside>
+
+    <!-- 우: 지도 -->
+    <main id="map-area">
+      <div id="map"></div>
+      <div id="map-hint" class="map-hint">
+        지도 우측 상단 도구로 <b>사각형/다각형</b>을 그려 검색 영역을 지정하세요
+      </div>
+    </main>
+  </div>
+
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,45 @@
+# ── 맛집 검색기 실행 설정 ────────────────────────────────────────────
+# 이 파일 값들은 서버 시작 시 로드됩니다. 서버 재시작하면 반영됩니다.
+
+server:
+  host: "127.0.0.1"
+  port: 5001          # macOS AirPlay Receiver 가 5000 을 쓰므로 5001 사용
+  debug: true
+
+# 어떤 소스를 사용할지 on/off
+sources:
+  kakao: true
+  naver: true
+
+# 수집 개수 제어
+#   default_limit : 검색 UI의 "개수" input에 자동으로 채워지는 기본값 (소스별)
+#   hard_cap      : "모두 가져오기" 체크 시에도 넘지 않는 안전 상한 (소스별)
+collection:
+  default_limit: 30
+  hard_cap: 300
+
+# GeoJSON 다각형 → 검색 격자(grid) 분할
+#   소스는 한 번 검색에 제한된 개수만 주므로, 넓은 영역은 격자로 쪼개서 훑습니다.
+#   tile_size_m : 한 격자 타일의 한 변 길이(미터). 작을수록 촘촘하지만 요청 수 증가.
+#   max_tiles   : 안전장치 — 한 번 검색이 만들 수 있는 최대 타일 수.
+grid:
+  tile_size_m: 700
+  max_tiles: 24     # 타일이 많을수록 커버리지↑ 속도↓. 너무 넓으면 자동으로 타일 키움
+
+# 카카오 목록 검색용 REST 키.
+# ⚠️ 실제 키는 여기에 두지 말고 config/settings.local.yaml (gitignore됨) 에 넣으세요.
+#    아래는 커밋되는 기본값(빈 문자열)입니다.
+kakao:
+  rest_api_key: ""
+
+# 스크래핑 동작 (IP 블락 회피 > 속도)
+scrape:
+  mock: false               # true 면 네트워크 없이 가짜 데이터로 UI/필터 전체 흐름 테스트
+  headless: true            # true = 크롬 'new headless'(창 없이 실행, 네이버 통과). false = 창 보임(디버그용)
+  concurrency: 2            # 동시에 띄우는 브라우저 컨텍스트 수
+  min_delay_ms: 400         # 요청 사이 최소 대기
+  max_delay_ms: 1200        # 요청 사이 최대 대기 (이 사이 랜덤)
+  nav_timeout_ms: 15000     # 페이지/요청 타임아웃
+  cooldown_after: 40        # 이 횟수만큼 요청하면 잠깐 쉼
+  cooldown_ms: 5000         # 쉬는 시간
+  user_agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
